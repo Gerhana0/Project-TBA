@@ -5,8 +5,8 @@
 1. Faadhilah Hana Gustie Fatimah (L0124012)
 2. Haliza Hana Maulina (L0124017)
 3. Jelita Kustyara Nanda Safitri (L0124020)
-4. Alena (L0124000)
-5. Wiwid (L0124000)
+4. Wiwid Widyaningsih (L0124123)
+5. Alena Mashia Qolby (L0124129)
 
 ## Instalasi
 
