@@ -11,5 +11,8 @@
 ## Instalasi
 
 1. git clone https://github.com/Gerhana0/Project-TBA
-2. pip install streamlit automata-lib
-3. streamlit run src/app.py
+2. cd Project-TBA
+3. buka terminal, ketik 'python -m venv .venv'
+4. kemudia ketik '.\.venv\Scripts\Activate.ps1'
+5. pip install streamlit automata-lib
+6. streamlit run src/app.py
