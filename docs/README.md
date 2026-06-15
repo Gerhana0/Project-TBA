@@ -13,6 +13,11 @@
 1. git clone https://github.com/Gerhana0/Project-TBA
 2. cd Project-TBA
 3. buka terminal, ketik 'python -m venv .venv'
-4. kemudia ketik '.\.venv\Scripts\Activate.ps1'
-5. pip install streamlit automata-lib
-6. streamlit run src/app.py
+4. kemudian ketik '.\.venv\Scripts\Activate.ps1'
+5. Install graphviz
+
+- Windows: download EXE Installer from https://graphviz.org/download/ (Open and Add Graphviz to the system PATH for all users)
+- Linux: sudo apt install graphviz python3-pydot
+
+7. pip install streamlit automata-lib graphviz
+8. streamlit run src/app.py
