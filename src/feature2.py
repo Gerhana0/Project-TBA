@@ -1,7 +1,6 @@
 import streamlit as st
 import re
 import graphviz
-from automata.fa.nfa import NFA
 
 class ThompsonNFA:
     def __init__(self):
@@ -275,44 +274,6 @@ class ThompsonNFA:
             return self._epsilon_nfa()
         return self._parse(regex)
 
-# HELPER: Konversi internal NFA dict → automata-lib NFA object
-
-def internal_to_automata_nfa(nfa_dict: dict) -> NFA:
-    """
-    Konversi NFA internal (dict format) ke objek automata-lib NFA.
-    automata-lib NFA menggunakan frozenset untuk set of states,
-    dan "" sebagai epsilon transition.
-    """
-    states = frozenset(nfa_dict["states"])
-    initial_state = nfa_dict["start"]
-    final_states = frozenset({nfa_dict["accept"]})
-
-    # Kumpulkan semua simbol (bukan epsilon)
-    input_symbols = set()
-    for trans in nfa_dict["transitions"].values():
-        for sym in trans:
-            if sym != "":
-                input_symbols.add(sym)
-    input_symbols = frozenset(input_symbols)
-
-    # Bangun transitions dalam format automata-lib:
-    # {state: {symbol: frozenset(states), ...}, ...}
-    transitions = {}
-    for state in states:
-        transitions[state] = {}
-        # Pastikan setiap state punya entry untuk setiap symbol (termasuk "")
-        if state in nfa_dict["transitions"]:
-            for sym, targets in nfa_dict["transitions"][state].items():
-                transitions[state][sym] = frozenset(targets)
-
-    return NFA(
-        states=states,
-        input_symbols=input_symbols,
-        transitions=transitions,
-        initial_state=initial_state,
-        final_states=final_states,
-    )
-
 
 # HELPER: Visualisasi NFA menggunakan Graphviz
 
@@ -498,39 +459,41 @@ def show():
 
     st.write("---")
 
+    with st.expander("Panduan Sintaks & Contoh Regex", expanded=False):
+        st.markdown("""
+        **Sintaks Dasar:**
+        | Operator | Arti |
+        |----------|------|
+        | `a`, `b`, `0-9` | Karakter literal |
+        | `\|` | Union (atau) |
+        | `*` | Kleene star (0 atau lebih) |
+        | `+` | Plus (1 atau lebih) |
+        | `?` | Optional (0 atau 1) |
+        | `()` | Pengelompokan |
+        | `[abc]` | Karakter set |
+        | `[a-z]` | Range karakter |
+        | `.` | Wildcard (karakter apapun) |
+        
+        **Contoh Regex yang Bisa Dicoba:**
+        | Regex | Deskripsi | Contoh String Diterima |
+        |-------|-----------|------------------------|
+        | `(a\|b)*abb` | String diakhiri `abb` | `abb`, `aabb`, `babb` |
+        | `[0-9]+` | Satu atau lebih digit | `1`, `42`, `999` |
+        | `a*b+` | Nol/lebih `a`, lalu satu/lebih `b` | `b`, `ab`, `aaabb` |
+        | `(ab)+` | Satu atau lebih `ab` | `ab`, `abab`, `ababab` |
+        | `[a-z][a-z0-9]*` | Identifier: huruf kecil, lalu alphanumeric | `x`, `var1`, `hello` |
+        | `0\|(1(01*0)*1)*` | Bilangan biner kelipatan 3 | `0`, `11`, `110` |
+        """)
+
     # ─── SECTION 1: Input Regex ───────────────────────────────────────────────
     st.subheader("Langkah 1: Masukkan Regular Expression")
 
-    col_input, col_info = st.columns([2, 1])
-
-    with col_input:
-        regex_input = st.text_input(
-            "Regular Expression:",
-            value="(a|b)*abb",
-            placeholder="Contoh: (a|b)*abb",
-            help="Operator yang didukung: | (union), * (kleene star), + (plus), ? (optional), () (grouping), [] (karakter set)",
-        )
-
-    with col_info:
-        with st.expander("Panduan Sintaks Regex", expanded=False):
-            st.markdown("""
-            | Operator | Arti |
-            |----------|------|
-            | `a`, `b`, `0-9` | Karakter literal |
-            | `\|` | Union (atau) |
-            | `*` | Kleene star (0 atau lebih) |
-            | `+` | Plus (1 atau lebih) |
-            | `?` | Optional (0 atau 1) |
-            | `()` | Pengelompokan |
-            | `[abc]` | Karakter set |
-            | `[a-z]` | Range karakter |
-            | `.` | Wildcard (karakter apapun) |
-            
-            **Contoh:**
-            - `(a|b)*abb` → string berisi `abb` di akhir
-            - `[0-9]+` → satu atau lebih digit
-            - `a?b*` → optional a, lalu nol/lebih b
-            """)
+    regex_input = st.text_input(
+        "Regular Expression:",
+        value="(a|b)*abb",
+        placeholder="Contoh: (a|b)*abb",
+        help="Operator yang didukung: | (union), * (kleene star), + (plus), ? (optional), () (grouping), [] (karakter set)",
+    )
 
     # Tombol Build NFA
     build_btn = st.button("Build NFA dari Regex", type="primary", use_container_width=True)
@@ -589,7 +552,7 @@ def show():
             st.metric("ε-Transisi", eps_count)
 
         # Tab untuk Diagram dan Tabel
-        tab_diagram, tab_table, tab_detail = st.tabs(["Diagram NFA", "Tabel Transisi", "Detail State"])
+        tab_diagram, tab_table = st.tabs(["Diagram NFA", "Tabel Transisi"])
 
         with tab_diagram:
             st.markdown("**Visualisasi NFA** (baca dari kiri ke kanan):")
@@ -642,28 +605,6 @@ def show():
 
             table_html += "</tbody></table>"
             st.markdown(table_html, unsafe_allow_html=True)
-
-        with tab_detail:
-            st.markdown("**Detail setiap state:**")
-            for state in sorted(nfa_dict["states"]):
-                is_start = state == nfa_dict["start"]
-                is_accept = state == nfa_dict["accept"]
-
-                badge = ""
-                if is_start:
-                    badge += "`START`"
-                if is_accept:
-                    badge += "`ACCEPT`"
-
-                with st.expander(f"State **{state}**{badge}"):
-                    trans = nfa_dict["transitions"].get(state, {})
-                    if not trans:
-                        st.write("Tidak ada transisi keluar dari state ini.")
-                    else:
-                        for sym, targets in sorted(trans.items()):
-                            label = "ε (epsilon)" if sym == "" else f"'{sym}'"
-                            targets_str = ", ".join(sorted(targets))
-                            st.write(f"  → Jika baca **{label}** → `{{{targets_str}}}`")
 
         # ─── SECTION 3: Tes String ─────────────────────────────────────────────
         st.write("---")
@@ -763,15 +704,3 @@ def show():
     else:
         # Placeholder sebelum NFA dibangun
         st.info("Masukkan regular expression dan klik **Build NFA** untuk memulai.")
-
-        with st.expander("Contoh-Contoh Regex yang Bisa Dicoba"):
-            st.markdown("""
-            | Regex | Deskripsi | Contoh String Diterima |
-            |-------|-----------|------------------------|
-            | `(a\|b)*abb` | String diakhiri `abb` | `abb`, `aabb`, `babb` |
-            | `[0-9]+` | Satu atau lebih digit | `1`, `42`, `999` |
-            | `a*b+` | Nol/lebih `a`, lalu satu/lebih `b` | `b`, `ab`, `aaabb` |
-            | `(ab)+` | Satu atau lebih `ab` | `ab`, `abab`, `ababab` |
-            | `[a-z][a-z0-9]*` | Identifier: huruf kecil, lalu alphanumeric | `x`, `var1`, `hello` |
-            | `0\|(1(01*0)*1)*` | Bilangan biner kelipatan 3 | `0`, `11`, `110` |
-            """)
