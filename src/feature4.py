@@ -275,7 +275,7 @@ Contoh:
     with col2:
 
         alphabet1_input = st.text_input(
-            "Alphabet DFA 1",
+            "Input DFA 1",
             value="a,b",
             key="alphabet1"
         )
@@ -357,7 +357,7 @@ Contoh:
     with col2:
 
         alphabet2_input = st.text_input(
-            "Alphabet DFA 2",
+            "Input DFA 2",
             value="a,b",
             key="alphabet2"
         )
@@ -434,7 +434,7 @@ Contoh:
 
         if not alphabet1:
             errors.append(
-                "Alphabet DFA 1 tidak boleh kosong."
+                "Input DFA 1 tidak boleh kosong."
             )
 
         if start1 not in states1:
@@ -457,7 +457,7 @@ Contoh:
 
         if not alphabet2:
             errors.append(
-                "Alphabet DFA 2 tidak boleh kosong."
+                "Input DFA 2 tidak boleh kosong."
             )
 
         if start2 not in states2:
@@ -625,7 +625,7 @@ Contoh:
             )
 
             st.write(
-                f"Alphabet: {', '.join(alphabet1)}"
+                f"Input: {', '.join(alphabet1)}"
             )
 
             st.write(
