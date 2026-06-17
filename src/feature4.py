@@ -2,10 +2,7 @@ import streamlit as st
 import pandas as pd
 from collections import deque
 
-
-# =====================================================
 # DFA CLASS
-# =====================================================
 
 class DFA:
     def __init__(
@@ -46,10 +43,7 @@ class DFA:
 
         return current in self.accept
 
-
-# =====================================================
 # EQUIVALENCE CHECK
-# =====================================================
 
 def check_equivalence(dfa1, dfa2):
 
@@ -142,10 +136,7 @@ def check_equivalence(dfa1, dfa2):
         visited_pairs
     )
 
-
-# =====================================================
 # BUILD DFA
-# =====================================================
 
 def build_dfa(
     states,
@@ -162,10 +153,7 @@ def build_dfa(
         accept_states
     )
 
-
-# =====================================================
 # TABLE VIEW
-# =====================================================
 
 def create_transition_table(
     states,
@@ -205,10 +193,7 @@ def create_transition_table(
 
     return rows
 
-
-# =====================================================
 # SESSION STATE INIT
-# =====================================================
 
 def initialize_dfa_table(
     prefix,
@@ -226,9 +211,7 @@ def initialize_dfa_table(
         index=states
     )
 
-# =====================================================
 # MAIN PAGE
-# =====================================================
 
 def show():
 
@@ -269,9 +252,7 @@ Contoh:
 - Final States : `q0`
 """)
 
-    # =================================================
     # INPUT DFA 1
-    # =================================================
 
     st.subheader("DFA 1")
 
@@ -353,9 +334,7 @@ Contoh:
 
     st.divider()
 
-    # =================================================
     # INPUT DFA 2
-    # =================================================
 
     st.subheader("DFA 2")
 
@@ -437,9 +416,7 @@ Contoh:
 
     st.divider() 
 
-    # =================================================
     # CEK EKUIVALENSI
-    # =================================================
 
     if st.button(
         "Cek Ekuivalensi",
@@ -448,9 +425,7 @@ Contoh:
 
         errors = []
 
-        # =========================
         # VALIDASI DFA 1
-        # =========================
 
         if not states1:
             errors.append(
@@ -473,9 +448,7 @@ Contoh:
                     f"Final state DFA 1 '{s}' tidak ada pada states."
                 )
 
-        # =========================
         # VALIDASI DFA 2
-        # =========================
 
         if not states2:
             errors.append(
@@ -498,9 +471,7 @@ Contoh:
                     f"Final state DFA 2 '{s}' tidak ada pada states."
                 )
 
-        # =========================
         # BANGUN TRANSISI DFA 1
-        # =========================
 
         transitions1 = {}
 
@@ -529,9 +500,7 @@ Contoh:
                         symbol
                     ] = target
 
-        # =========================
         # BANGUN TRANSISI DFA 2
-        # =========================
 
         transitions2 = {}
 
@@ -560,9 +529,7 @@ Contoh:
                         symbol
                     ] = target
 
-        # =========================
         # VALIDASI TRANSISI DFA 1
-        # =========================
 
         for state in states1:
             for symbol in alphabet1:
@@ -583,9 +550,7 @@ Contoh:
                         f"δ({state}, {symbol}) = {target} tidak ada pada states DFA 1."
                     )
 
-        # =========================
         # VALIDASI TRANSISI DFA 2
-        # =========================
 
         for state in states2:
             for symbol in alphabet2:
@@ -619,9 +584,7 @@ Contoh:
 
             return
 
-        # =========================
         # BUILD DFA
-        # =========================
 
         dfa1 = build_dfa(
             states1,
@@ -643,9 +606,7 @@ Contoh:
             "Kedua DFA berhasil dibuat."
         )
 
-        # =========================
         # RINGKASAN DFA
-        # =========================
 
         st.subheader(
             "Ringkasan DFA"
@@ -697,9 +658,7 @@ Contoh:
                 f"Final States: {', '.join(accept2)}"
             )
 
-        # =========================
         # CEK EKUIVALENSI
-        # =========================
 
         (
             is_eq,
@@ -719,7 +678,7 @@ Contoh:
         if is_eq:
 
             st.success(
-                "✅ Kedua DFA EKUIVALEN"
+                "Kedua DFA EKUIVALEN"
             )
 
             st.write(
@@ -729,7 +688,7 @@ Contoh:
         else:
 
             st.error(
-                "❌ Kedua DFA TIDAK EKUIVALEN"
+                "Kedua DFA TIDAK EKUIVALEN"
             )
 
             if witness == "":
@@ -771,9 +730,7 @@ Contoh:
                     else "DITOLAK"
                 )
 
-        # =========================
         # PRODUCT STATES
-        # =========================
 
         with st.expander(
             "Detail Product States yang Dikunjungi (BFS)"
@@ -802,9 +759,7 @@ Contoh:
                 f"Total pasangan state yang dikunjungi: {len(visited_pairs)}"
             )
 
-        # =========================
         # PENJELASAN
-        # =========================
 
         with st.expander(
             "Penjelasan Algoritma"
