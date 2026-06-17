@@ -306,6 +306,11 @@ def show():
 
         result = minimize_dfa(states, alphabet, transitions, start_state, accept_states)
 
+        # Keterangan unreachable states
+        unreachable = [s for s in states if s not in result["reachable_states"]]
+        if unreachable:
+            st.warning(f"State tidak dapat dicapai dari start state dan telah dihapus sebelum minimalisasi: **{', '.join(unreachable)}**")
+
         st.success("DFA berhasil diminimalkan!")
 
         # Ilustrasi sebelum & sesudah
