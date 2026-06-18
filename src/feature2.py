@@ -1,6 +1,7 @@
 import streamlit as st
 import re
 import graphviz
+from automata.fa.nfa import NFA
 
 class ThompsonNFA:
     def __init__(self):
@@ -12,7 +13,6 @@ class ThompsonNFA:
         return s
 
     def _epsilon_nfa(self) -> dict:
-        """NFA yang menerima hanya string kosong (ε)."""
         start = self._new_state()
         accept = self._new_state()
         return {
@@ -23,7 +23,6 @@ class ThompsonNFA:
         }
 
     def _symbol_nfa(self, symbol: str) -> dict:
-        """NFA yang menerima tepat satu simbol."""
         start = self._new_state()
         accept = self._new_state()
         return {
@@ -125,19 +124,14 @@ class ThompsonNFA:
         }
 
     def _plus(self, nfa: dict) -> dict:
-        """Plus (+): satu atau lebih → concat(nfa, kleene_star(nfa))."""
-        # Buat salinan NFA untuk kleene star agar state tidak overlap
-        # Kita pakai union pendekatan: NFA+ = NFA · NFA*
         star_part = self._kleene_star(self._copy_nfa(nfa))
         return self._concat(nfa, star_part)
 
     def _optional(self, nfa: dict) -> dict:
-        """Optional (?): nol atau satu → union(nfa, epsilon)."""
         eps = self._epsilon_nfa()
         return self._union(nfa, eps)
 
     def _copy_nfa(self, nfa: dict) -> dict:
-        """Buat salinan NFA dengan state baru agar tidak ada konflik."""
         old_states = sorted(nfa["states"])
         rename = {s: self._new_state() for s in old_states}
 
@@ -155,10 +149,8 @@ class ThompsonNFA:
             "transitions": new_transitions,
         }
 
-    # ─── Regex Parser (Recursive Descent) ────────────────────────────────────
-
+    # Regex Parser (Recursive Descent) 
     def _parse(self, regex: str) -> dict:
-        """Entry point parsing regex → NFA."""
         self._pos = 0
         self._regex = regex
         result = self._parse_expr()
@@ -167,7 +159,6 @@ class ThompsonNFA:
         return result
 
     def _parse_expr(self) -> dict:
-        """Parse expression dengan operator | (union)."""
         left = self._parse_concat()
         while self._pos < len(self._regex) and self._regex[self._pos] == "|":
             self._pos += 1  # consume '|'
@@ -176,7 +167,6 @@ class ThompsonNFA:
         return left
 
     def _parse_concat(self) -> dict:
-        """Parse concatenation (implicit)."""
         result = None
         while self._pos < len(self._regex) and self._regex[self._pos] not in ("|", ")"):
             piece = self._parse_quantifier()
@@ -189,7 +179,6 @@ class ThompsonNFA:
         return result
 
     def _parse_quantifier(self) -> dict:
-        """Parse atom + optional quantifier (*, +, ?)."""
         atom = self._parse_atom()
         if self._pos < len(self._regex):
             ch = self._regex[self._pos]
@@ -254,9 +243,6 @@ class ThompsonNFA:
             return self._symbol_nfa(escaped)
 
         elif ch == ".":
-            # Wildcard: kita representasikan sebagai simbol khusus "."
-            # (dalam konteks NFA ini, kita matching literal ".")
-            # Untuk fullness, treat sebagai symbol "."
             self._pos += 1
             return self._symbol_nfa(".")
 
@@ -266,16 +252,47 @@ class ThompsonNFA:
             return self._symbol_nfa(ch)
 
     def build(self, regex: str) -> dict:
-        """
-        Bangun NFA dari regex string.
-        Return dict dengan keys: states, start, accept, transitions
-        """
         if not regex:
             return self._epsilon_nfa()
         return self._parse(regex)
 
+def dict_to_automata_nfa(nfa_dict: dict) -> NFA:
+    states = frozenset(nfa_dict["states"])
+    
+    # Kumpulkan semua input symbols (bukan epsilon)
+    input_symbols = set()
+    for trans in nfa_dict["transitions"].values():
+        for sym in trans:
+            if sym != "":
+                input_symbols.add(sym)
+    input_symbols = frozenset(input_symbols)
+    
+    # Convert transitions ke format automata-lib
+    transitions = {}
+    for state in nfa_dict["states"]:
+        transitions[state] = {}
+        if state in nfa_dict["transitions"]:
+            for sym, targets in nfa_dict["transitions"][state].items():
+                transitions[state][sym] = frozenset(targets)
+    
+    return NFA(
+        states=states,
+        input_symbols=input_symbols,
+        transitions=transitions,
+        initial_state=nfa_dict["start"],
+        final_states=frozenset({nfa_dict["accept"]})
+    )
 
-# HELPER: Visualisasi NFA menggunakan Graphviz
+
+def validate_nfa_dict(nfa_dict: dict) -> tuple[bool, str]:
+    try:
+        automata_nfa = dict_to_automata_nfa(nfa_dict)
+        automata_nfa.validate()
+        return True, "NFA valid"
+    except Exception as e:
+        return False, str(e)
+    
+# Visualisasi NFA menggunakan Graphviz
 
 def visualize_nfa(nfa_dict: dict, highlight_path: list = None) -> graphviz.Digraph:
     dot = graphviz.Digraph(
@@ -367,7 +384,6 @@ def visualize_nfa(nfa_dict: dict, highlight_path: list = None) -> graphviz.Digra
 # HELPER: Simulasi NFA pada string (epsilon-closure based)
 
 def epsilon_closure(states: set, transitions: dict) -> set:
-    """Hitung ε-closure dari sekumpulan state."""
     closure = set(states)
     stack = list(states)
     while stack:
@@ -381,12 +397,6 @@ def epsilon_closure(states: set, transitions: dict) -> set:
 
 
 def simulate_nfa(nfa_dict: dict, input_string: str) -> tuple[bool, list]:
-    """
-    Simulasikan NFA pada input_string.
-    
-    Returns:
-        (accepted: bool, path_states: list of set of states per step)
-    """
     transitions = nfa_dict["transitions"]
     initial_states = epsilon_closure({nfa_dict["start"]}, transitions)
     
@@ -410,7 +420,7 @@ def simulate_nfa(nfa_dict: dict, input_string: str) -> tuple[bool, list]:
     accepted = nfa_dict["accept"] in current_states
     return accepted, path
 
-# HELPER: Buat Tabel Transisi NFA
+# Buat Tabel Transisi NFA
 
 def build_transition_table(nfa_dict: dict) -> tuple[list, list]:
     # Kumpulkan semua simbol (termasuk ε)
@@ -485,7 +495,7 @@ def show():
         | `0\|(1(01*0)*1)*` | Bilangan biner kelipatan 3 | `0`, `11`, `110` |
         """)
 
-    # ─── SECTION 1: Input Regex ───────────────────────────────────────────────
+    # Input Regex 
     st.subheader("Langkah 1: Masukkan Regular Expression")
 
     regex_input = st.text_input(
@@ -509,9 +519,18 @@ def show():
             with st.spinner("Membangun NFA menggunakan Thompson's Construction..."):
                 builder = ThompsonNFA()
                 nfa_dict = builder.build(regex_input.strip())
-                st.session_state.nfa_dict = nfa_dict
-                st.session_state.last_regex = regex_input.strip()
-            st.success(f"NFA berhasil dibangun dari regex: `{regex_input}`")
+            
+                # Validasi NFA menggunakan automata-lib
+                is_valid, validation_msg = validate_nfa_dict(nfa_dict)
+            
+                if is_valid:
+                    st.session_state.nfa_dict = nfa_dict
+                    st.session_state.last_regex = regex_input.strip()
+                    st.success(f"NFA berhasil dibangun dan tervalidasi dari regex: `{regex_input}`")
+                else:
+                    st.error(f"NFA gagal validasi: {validation_msg}")
+                    st.session_state.nfa_dict = None
+                    
         except ValueError as e:
             st.error(f"Error parsing regex: {e}")
             st.session_state.nfa_dict = None
@@ -522,7 +541,7 @@ def show():
     elif build_btn and not regex_input.strip():
         st.warning("Harap masukkan regular expression terlebih dahulu.")
 
-    # SECTION 2: Visualisasi NFA 
+    # Visualisasi NFA 
     if st.session_state.nfa_dict is not None:
         nfa_dict = st.session_state.nfa_dict
 
@@ -606,7 +625,7 @@ def show():
             table_html += "</tbody></table>"
             st.markdown(table_html, unsafe_allow_html=True)
 
-        # ─── SECTION 3: Tes String ─────────────────────────────────────────────
+        # Tes String 
         st.write("---")
         st.subheader("Langkah 3: Tes String pada NFA")
         st.markdown(f"Regex yang digunakan: `{st.session_state.last_regex}`")
@@ -619,8 +638,8 @@ def show():
                 key="nfa_test_string",
             )
         with col_test2:
-            st.write("")  # spacer
-            st.write("")  # spacer
+            st.write("")  
+            st.write("")  
             test_btn = st.button("Tes String", type="primary", use_container_width=True)
 
         if test_btn:
