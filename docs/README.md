@@ -19,5 +19,5 @@
 - Windows: download EXE Installer from https://graphviz.org/download/ (Open and Add Graphviz to the system PATH for all users)
 - Linux: sudo apt install graphviz python3-pydot
 
-7. pip install streamlit automata-lib graphviz
+7. pip install streamlit automata-lib graphviz matplotlib numpy pandas
 8. streamlit run src/app.py
