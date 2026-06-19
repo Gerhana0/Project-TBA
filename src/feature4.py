@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from collections import deque
+import graphviz
 
 # DFA CLASS
 
@@ -43,98 +43,222 @@ class DFA:
 
         return current in self.accept
 
-# EQUIVALENCE CHECK
+# DIAGRAM STATE (GRAPHVIZ)
 
-def check_equivalence(dfa1, dfa2):
+def draw_dfa(dfa, title="DFA"):
 
-    alphabet = (
-        dfa1.alphabet |
-        dfa2.alphabet
+    graph = graphviz.Digraph()
+
+    graph.attr(
+        rankdir="LR",
+        label=title,
+        labelloc="t",
+        fontsize="16"
     )
 
-    start_pair = (
-        dfa1.start,
-        dfa2.start
+    graph.attr(
+        "node",
+        shape="circle",
+        fontsize="12"
     )
 
-    visited = {start_pair}
-    visited_pairs = [start_pair]
+    # TITIK INVISIBLE UNTUK PENANDA START STATE
 
-    queue = deque()
-    queue.append(
-        (start_pair, "")
+    graph.node(
+        "__start__",
+        shape="point",
+        label=""
     )
 
-    while queue:
+    for state in sorted(dfa.states):
 
-        (
-            (q1, q2),
-            path
-        ) = queue.popleft()
-
-        accept1 = (
-            q1 in dfa1.accept
+        shape = (
+            "doublecircle"
+            if state in dfa.accept
+            else "circle"
         )
 
-        accept2 = (
-            q2 in dfa2.accept
+        graph.node(
+            state,
+            shape=shape
         )
 
-        if accept1 != accept2:
+    graph.edge(
+        "__start__",
+        dfa.start
+    )
 
-            return (
-                False,
-                path,
-                visited_pairs
+    # KUMPULKAN LABEL TRANSISI YANG MENUJU STATE SAMA
+
+    edge_labels = {}
+
+    for state in sorted(dfa.states):
+
+        for symbol in sorted(dfa.alphabet):
+
+            target = dfa.transition(
+                state,
+                symbol
             )
 
-        for symbol in sorted(alphabet):
+            if target is None:
+                continue
+
+            key = (state, target)
+
+            if key not in edge_labels:
+                edge_labels[key] = []
+
+            edge_labels[key].append(symbol)
+
+    for (src, dst), symbols in edge_labels.items():
+
+        graph.edge(
+            src,
+            dst,
+            label=", ".join(symbols)
+        )
+
+    return graph
+
+# TABLE-FILLING METHOD (PRODUCT STATE PAIRS)
+
+def build_equivalence_table(dfa1, dfa2):
+    """
+    Membangun tabel pasangan state (V, V') beserta hasil
+    transisinya untuk setiap simbol pada alfabet gabungan,
+    mengikuti pendekatan product automaton table-filling.
+
+    Mengembalikan:
+        rows: list of dict, satu baris per pasangan state
+              yang dikunjungi, berisi pasangan state saat ini
+              dan pasangan state hasil transisi tiap simbol.
+        is_equivalent: bool, hasil akhir ekuivalensi
+        distinguishing_pair: pasangan state pertama yang
+              status final-nya berbeda (None jika ekuivalen)
+    """
+
+    alphabet = sorted(
+        dfa1.alphabet | dfa2.alphabet
+    )
+
+    start_pair = (dfa1.start, dfa2.start)
+
+    visited = [start_pair]
+    visited_set = {start_pair}
+
+    rows = []
+    is_equivalent = True
+    distinguishing_pair = None
+
+    index = 0
+
+    while index < len(visited):
+
+        q1, q2 = visited[index]
+        index += 1
+
+        accept1 = q1 in dfa1.accept if q1 is not None else False
+        accept2 = q2 in dfa2.accept if q2 is not None else False
+
+        row = {
+            "Pasangan State": f"({q1}, {q2})"
+        }
+
+        if (
+            q1 == dfa1.start
+            and q2 == dfa2.start
+        ):
+            row["Pasangan State"] = "→ " + row["Pasangan State"]
+
+        same_status = (accept1 == accept2)
+
+        if not same_status and is_equivalent:
+            is_equivalent = False
+            distinguishing_pair = (q1, q2)
+
+        for symbol in alphabet:
 
             next_q1 = (
-                dfa1.transition(
-                    q1,
-                    symbol
-                )
+                dfa1.transition(q1, symbol)
                 if q1 is not None
                 else None
             )
 
             next_q2 = (
-                dfa2.transition(
-                    q2,
-                    symbol
-                )
+                dfa2.transition(q2, symbol)
                 if q2 is not None
                 else None
             )
 
-            next_pair = (
-                next_q1,
-                next_q2
+            next_pair = (next_q1, next_q2)
+
+            row[f"({symbol}, {symbol})"] = (
+                f"({next_q1}, {next_q2})"
             )
 
-            if next_pair not in visited:
+            if next_pair not in visited_set:
+                visited_set.add(next_pair)
+                visited.append(next_pair)
 
-                visited.add(
-                    next_pair
-                )
+        rows.append(row)
 
-                visited_pairs.append(
-                    next_pair
-                )
+    return rows, is_equivalent, distinguishing_pair
 
-                queue.append(
-                    (
-                        next_pair,
-                        path + symbol
-                    )
-                )
 
-    return (
-        True,
-        None,
-        visited_pairs
-    )
+def generate_equivalence_explanation(
+    dfa1,
+    dfa2,
+    is_equivalent,
+    distinguishing_pair
+):
+    """
+    Menyusun penjelasan kesimpulan secara otomatis
+    berdasarkan hasil tabel pasangan state.
+    """
+
+    alphabet = sorted(dfa1.alphabet | dfa2.alphabet)
+
+    if is_equivalent:
+
+        explanation = (
+            f"∴ DFA 1 dan DFA 2 **EKUIVALEN**, karena setiap "
+            f"pasangan state yang dikunjungi, saat diberi input "
+            f"{', '.join(alphabet)}, selalu menuju ke pasangan "
+            f"state dengan status yang sama (sama-sama final "
+            f"state atau sama-sama non-final state). Tidak "
+            f"ditemukan pasangan state dengan status final yang "
+            f"berbeda, sehingga kedua DFA menerima bahasa yang "
+            f"sama."
+        )
+
+    else:
+
+        q1, q2 = distinguishing_pair
+
+        status1 = (
+            "final state"
+            if q1 in dfa1.accept
+            else "non-final state"
+        )
+
+        status2 = (
+            "final state"
+            if q2 in dfa2.accept
+            else "non-final state"
+        )
+
+        explanation = (
+            f"∴ DFA 1 dan DFA 2 **TIDAK EKUIVALEN**, karena pada "
+            f"pasangan state ({q1}, {q2}), state {q1} pada DFA 1 "
+            f"merupakan {status1} sedangkan state {q2} pada "
+            f"DFA 2 merupakan {status2}. Karena status final "
+            f"keduanya berbeda, maka terdapat string yang "
+            f"menghasilkan keputusan berbeda pada kedua DFA, "
+            f"sehingga kedua DFA tidak menerima bahasa yang sama."
+        )
+
+    return explanation
 
 # BUILD DFA
 
@@ -221,12 +345,6 @@ def show():
         "Masukkan dua DFA, kemudian periksa "
         "apakah keduanya menerima bahasa "
         "yang sama (ekuivalen)."
-    )
-
-    st.info(
-        "Program menggunakan algoritma "
-        "Product Automaton + BFS untuk "
-        "mencari witness string pembeda."
     )
 
     with st.expander(
@@ -414,7 +532,7 @@ Contoh:
         key="dfa2_editor"
     )
 
-    st.divider() 
+    st.divider()
 
     # CEK EKUIVALENSI
 
@@ -606,7 +724,7 @@ Contoh:
             "Kedua DFA berhasil dibuat."
         )
 
-        # RINGKASAN DFA
+        # RINGKASAN DFA + DIAGRAM STATE
 
         st.subheader(
             "Ringkasan DFA"
@@ -636,6 +754,10 @@ Contoh:
                 f"Final States: {', '.join(accept1)}"
             )
 
+            st.graphviz_chart(
+                draw_dfa(dfa1, "DFA 1")
+            )
+
         with col2:
 
             st.markdown(
@@ -658,13 +780,17 @@ Contoh:
                 f"Final States: {', '.join(accept2)}"
             )
 
-        # CEK EKUIVALENSI
+            st.graphviz_chart(
+                draw_dfa(dfa2, "DFA 2")
+            )
+
+        # CEK EKUIVALENSI (TABLE-FILLING METHOD)
 
         (
+            table_rows,
             is_eq,
-            witness,
-            visited_pairs
-        ) = check_equivalence(
+            distinguishing_pair
+        ) = build_equivalence_table(
             dfa1,
             dfa2
         )
@@ -681,109 +807,25 @@ Contoh:
                 "Kedua DFA EKUIVALEN"
             )
 
-            st.write(
-                "Tidak ditemukan string yang membedakan kedua DFA."
-            )
-
         else:
 
             st.error(
                 "Kedua DFA TIDAK EKUIVALEN"
             )
 
-            if witness == "":
-                witness = "ε"
+        st.markdown(
+            "**Tabel Pasangan State**"
+        )
 
-            st.markdown(
-                f"### Witness String\n`{witness}`"
-            )
+        st.table(
+            pd.DataFrame(table_rows)
+        )
 
-            st.write(
-                "Witness adalah string terpendek yang menghasilkan keputusan berbeda pada kedua DFA."
-            )
+        explanation = generate_equivalence_explanation(
+            dfa1,
+            dfa2,
+            is_eq,
+            distinguishing_pair
+        )
 
-            col1, col2 = st.columns(2)
-
-            with col1:
-
-                st.metric(
-                    "DFA 1",
-                    "DITERIMA"
-                    if dfa1.accepts(
-                        witness
-                        if witness != "ε"
-                        else ""
-                    )
-                    else "DITOLAK"
-                )
-
-            with col2:
-
-                st.metric(
-                    "DFA 2",
-                    "DITERIMA"
-                    if dfa2.accepts(
-                        witness
-                        if witness != "ε"
-                        else ""
-                    )
-                    else "DITOLAK"
-                )
-
-        # PRODUCT STATES
-
-        with st.expander(
-            "Detail Product States yang Dikunjungi (BFS)"
-        ):
-
-            rows = []
-
-            for q1, q2 in visited_pairs:
-
-                rows.append({
-                    "State DFA 1": str(q1),
-                    "Final DFA 1":
-                        "✅"
-                        if q1 in dfa1.accept
-                        else "—",
-                    "State DFA 2": str(q2),
-                    "Final DFA 2":
-                        "✅"
-                        if q2 in dfa2.accept
-                        else "—"
-                })
-
-            st.table(rows)
-
-            st.caption(
-                f"Total pasangan state yang dikunjungi: {len(visited_pairs)}"
-            )
-
-        # PENJELASAN
-
-        with st.expander(
-            "Penjelasan Algoritma"
-        ):
-
-            st.markdown("""
-### Product Automaton + BFS
-
-1. Bentuk pasangan state `(q1,q2)` dari DFA1 × DFA2.
-2. Mulai dari pasangan state awal.
-3. Jelajahi seluruh pasangan state menggunakan BFS.
-4. Jika ditemukan pasangan state dengan status final berbeda, DFA tidak ekuivalen.
-5. String yang membawa BFS ke pasangan tersebut disebut witness string.
-6. Jika BFS selesai tanpa menemukan perbedaan, DFA ekuivalen.
-
-### Kompleksitas Waktu
-
-O(|Q1| × |Q2| × |Σ|)
-
-dengan:
-
-- |Q1| = jumlah state DFA 1
-- |Q2| = jumlah state DFA 2
-- |Σ| = jumlah simbol alfabet
-
-Setiap pasangan state hanya dikunjungi satu kali oleh BFS.
-""")
+        st.markdown(explanation)
